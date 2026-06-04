@@ -504,6 +504,7 @@ async function viewAdmin(view) {
     </div>`;
 
   view.innerHTML = `
+   <div class="admin-wrap">
     <div class="section-head"><h1>Admin</h1><span class="hint">résultats & officiels</span></div>
     <div class="note">Saisis les scores finaux ici (filet de sécurité de l'auto-fetch). Pour les phases finales : fixe d'abord les équipes, puis le score et le qualifié.</div>
 
@@ -518,9 +519,19 @@ async function viewAdmin(view) {
     <div style="padding:0 14px">${groups.map(groupSetter).join('')}</div>
 
     <div class="subhead">⚽ Résultats des matchs</div>
-    <div style="padding:0 14px 8px">${matches.map(matchRow).join('')}</div>`;
+    <div style="padding:0 14px 8px">${matches.map(matchRow).join('')}</div>
+   </div>`;
 
   bindAdmin(view);
+}
+
+// Re-render the admin view in place WITHOUT resetting scroll position.
+async function refreshAdmin() {
+  const view = document.getElementById('view');
+  if (!view) return;
+  const y = window.scrollY;
+  await viewAdmin(view);
+  window.scrollTo(0, y);
 }
 
 function bindAdmin(view) {
@@ -531,7 +542,9 @@ function bindAdmin(view) {
     catch (e) { toast(e.message, 'err'); }
   });
 
-  view.addEventListener('click', async (e) => {
+  // Delegate on the recreated .admin-wrap (not the persistent #view) so listeners
+  // don't stack across in-place refreshes.
+  view.querySelector('.admin-wrap').addEventListener('click', async (e) => {
     const btn = e.target.closest('[data-act]');
     if (!btn) return;
     const act = btn.dataset.act;
@@ -542,10 +555,10 @@ function bindAdmin(view) {
         const get = (f) => { const el = box.querySelector(`[data-f="${f}"]`); return el ? el.value : undefined; };
         if (act === 'teams') {
           await api(`/api/admin/matches/${id}/teams`, { method: 'PUT', body: { home_team_id: get('home_team_id'), away_team_id: get('away_team_id') } });
-          toast('Équipes fixées'); return router();
+          toast('Équipes fixées'); return refreshAdmin();
         }
         await api(`/api/admin/matches/${id}/result`, { method: 'PUT', body: { home_score: get('home_score'), away_score: get('away_score'), advancing_team_id: get('advancing') } });
-        toast('Résultat enregistré'); router();
+        toast('Résultat enregistré'); refreshAdmin();
       } else if (act === 'freeze' || act === 'unfreeze') {
         const box = e.target.closest('.admin-match');
         const letter = box.dataset.letter;
@@ -557,7 +570,7 @@ function bindAdmin(view) {
           if (order.length !== 4) return toast('Groupe incomplet (4 équipes requises).', 'err');
           await api(`/api/admin/groups/${letter}/official-order`, { method: 'PUT', body: { order } });
         }
-        toast('Ordre officiel mis à jour'); router();
+        toast('Ordre officiel mis à jour'); refreshAdmin();
       }
     } catch (err) { toast(err.message, 'err'); }
   });
