@@ -1,0 +1,20 @@
+services:
+  pronostix:
+    build: .
+    image: pronostix:latest
+    container_name: pronostix
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Change this to set/reset the admin PIN on boot (pseudo "admin").
+      ADMIN_PSEUDO: admin
+      ADMIN_PIN: "2026"
+      # How often (minutes) the auto-fetcher polls for final results. 0 = disabled.
+      FETCH_INTERVAL_MIN: "3"
+      TZ: Europe/Zurich
+    volumes:
+      - pronostix-data:/data
+
+volumes:
+  pronostix-data:

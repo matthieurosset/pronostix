@@ -1,0 +1,21 @@
+# Dependencies
+node_modules/
+
+# Database (runtime data, lives on a NAS volume)
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Logs / env
+*.log
+.env
+.env.local
+
+# Superpowers brainstorm artefacts
+.superpowers/
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/

@@ -1,0 +1,22 @@
+{
+  "name": "pronostix",
+  "version": "1.0.0",
+  "description": "Pronostix — pronostics de la Coupe du Monde 2026 en famille",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server/index.js",
+    "seed": "node scripts/seed.js",
+    "flags": "node scripts/import-flags.js",
+    "setup": "npm run flags && npm run seed",
+    "dev": "node --watch server/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@fastify/static": "^7.0.4",
+    "better-sqlite3": "^11.3.0",
+    "fastify": "^4.28.1"
+  }
+}
