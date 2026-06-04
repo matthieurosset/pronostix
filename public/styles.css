@@ -182,10 +182,19 @@ body::after {
 .order-item .nm { flex: 1; font-size: 13px; font-weight: 600; }
 .order-item .ok { color: var(--gold); font-size: 11px; font-weight: 800; }
 .order-item .miss { color: var(--ink-faint); font-size: 11px; }
-.arrows { display: flex; flex-direction: column; gap: 2px; }
-.arrows button { width: 26px; height: 18px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 6px; cursor: pointer; font-size: 10px; display: grid; place-items: center; }
-.arrows button:active { transform: scale(.9); }
-.arrows button:disabled { opacity: .25; cursor: default; }
+.drag-handle {
+  margin-left: auto; width: 38px; height: 38px; flex: none;
+  display: grid; place-items: center; font-size: 16px; line-height: 1;
+  border: 1px solid var(--line); border-radius: 9px; background: var(--surface);
+  color: var(--ink-faint); cursor: grab; touch-action: none; -webkit-tap-highlight-color: transparent;
+}
+.drag-handle:hover { color: var(--lime); border-color: var(--lime); }
+.drag-handle:active { cursor: grabbing; }
+.order-item.dragging {
+  border-color: var(--lime); background: var(--surface-2);
+  box-shadow: 0 14px 30px -8px rgba(0,0,0,.75); position: relative; will-change: transform;
+}
+.order-item.dragging .drag-handle { cursor: grabbing; color: var(--lime); }
 
 /* ---------- Leaderboard ---------- */
 .podium { display: flex; gap: 10px; padding: 8px 16px 4px; align-items: flex-end; }

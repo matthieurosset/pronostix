@@ -310,7 +310,7 @@ function groupCard(g) {
         <tbody>${standRows}</tbody>
       </table>
       <div class="subhead">Ton pronostic d'ordre final</div>
-      <ul class="order-list" data-letter="${g.letter}">
+      <ul class="order-list ${g.locked ? 'locked' : ''}" data-letter="${g.letter}">
         ${orderTeams.map((t, i) => orderItem(t, i, official, g.locked)).join('')}
       </ul>
     </div>`;
@@ -322,41 +322,71 @@ function orderItem(t, i, official, locked) {
     const correct = official[i] === t.id;
     badge = correct ? `<span class="ok">✓ +1</span>` : `<span class="miss">✗</span>`;
   }
-  const arrows = locked ? '' : `
-    <div class="arrows">
-      <button data-act="up" ${i === 0 ? 'disabled' : ''}>▲</button>
-      <button data-act="down" data-last="${i}">▼</button>
-    </div>`;
+  const handle = locked ? '' : `<button class="drag-handle" aria-label="Glisser pour classer" title="Glisser pour classer">⠿</button>`;
   return `
-    <li class="order-item" data-team="${t.id}">
+    <li class="order-item ${locked ? '' : 'draggable'}" data-team="${t.id}">
       <span class="rk">${i + 1}</span>
       <img src="${flagUrl(t.flag)}" alt=""/>
       <span class="nm">${esc(t.name)}</span>
-      ${badge}${arrows}
+      ${badge}${handle}
     </li>`;
 }
 
 function bindGroups(view) {
-  view.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-act]');
-    if (!btn) return;
-    const list = e.target.closest('.order-list');
-    if (!list) return;
-    const item = e.target.closest('.order-item');
-    const items = [...list.children];
-    const idx = items.indexOf(item);
-    if (btn.dataset.act === 'up' && idx > 0) list.insertBefore(item, items[idx - 1]);
-    else if (btn.dataset.act === 'down' && idx < items.length - 1) list.insertBefore(items[idx + 1], item);
-    else return;
-    // renumber + persist
-    [...list.children].forEach((li, i) => { li.querySelector('.rk').textContent = i + 1; });
-    const letter = list.dataset.letter;
-    const order = [...list.children].map(li => Number(li.dataset.team));
-    [...list.querySelectorAll('.arrows button[data-act="up"]')].forEach((b, i) => b.disabled = i === 0);
+  view.querySelectorAll('.order-list:not(.locked)').forEach(enableDragReorder);
+}
+
+// Touch + mouse drag-to-reorder via Pointer Events (no native HTML5 DnD — it doesn't work on mobile).
+function enableDragReorder(list) {
+  const letter = list.dataset.letter;
+  let drag = null;
+
+  const onMove = (e) => {
+    if (!drag) return;
+    e.preventDefault();
+    // measure true flow position with the transform cleared, reorder, then offset under finger
+    drag.li.style.transform = 'none';
+    const others = [...list.querySelectorAll('.order-item:not(.dragging)')];
+    let ref = null;
+    for (const s of others) {
+      const r = s.getBoundingClientRect();
+      if (e.clientY < r.top + r.height / 2) { ref = s; break; }
+    }
+    list.insertBefore(drag.li, ref);
+    [...list.children].forEach((x, i) => { x.querySelector('.rk').textContent = i + 1; });
+    const slotTop = drag.li.getBoundingClientRect().top;
+    drag.li.style.transform = `translateY(${(e.clientY - drag.offsetY) - slotTop}px) scale(1.02)`;
+  };
+
+  const onUp = (e) => {
+    if (!drag) return;
+    const { li, handle } = drag;
+    handle.removeEventListener('pointermove', onMove);
+    try { handle.releasePointerCapture(e.pointerId); } catch {}
+    li.classList.remove('dragging');
+    li.style.transform = '';
+    li.style.zIndex = '';
+    drag = null;
+    const order = [...list.children].map(x => Number(x.dataset.team));
     debounceSave('g' + letter, async () => {
       try { await api(`/api/groups/${letter}/order`, { method: 'PUT', body: { order } }); toast(`Groupe ${letter} enregistré`); }
       catch (err) { toast(err.message, 'err'); }
-    }, 500);
+    }, 400);
+  };
+
+  list.querySelectorAll('.drag-handle').forEach(handle => {
+    handle.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const li = handle.closest('.order-item');
+      const rect = li.getBoundingClientRect();
+      drag = { li, handle, offsetY: e.clientY - rect.top };
+      li.classList.add('dragging');
+      li.style.zIndex = '50';
+      try { handle.setPointerCapture(e.pointerId); } catch {}
+      handle.addEventListener('pointermove', onMove);
+      handle.addEventListener('pointerup', onUp, { once: true });
+      handle.addEventListener('pointercancel', onUp, { once: true });
+    });
   });
 }
 
