@@ -45,7 +45,7 @@ Configuration via `docker-compose.yml` :
 
 | Variable | Rôle | Défaut |
 |---|---|---|
-| `ADMIN_PSEUDO` | pseudo du compte admin (recréé à chaque boot) | `admin` |
+| `ADMIN_PSEUDO` | pseudo du compte admin (recréé à chaque boot) | `Matthieu` |
 | `ADMIN_PIN` | PIN de l'admin | `2026` |
 | `FETCH_INTERVAL_MIN` | fréquence de l'auto-fetch des résultats (0 = off) | `3` |
 | `TZ` | fuseau | `Europe/Zurich` |
@@ -59,7 +59,7 @@ La base SQLite vit dans le volume `pronostix-data` (`/data`), elle survit aux mi
 ```bash
 npm install
 npm run setup          # importe les drapeaux puis seed la base
-ADMIN_PSEUDO=admin ADMIN_PIN=2026 FETCH_INTERVAL_MIN=0 npm start
+ADMIN_PSEUDO=Matthieu ADMIN_PIN=2026 FETCH_INTERVAL_MIN=0 npm start
 # → http://localhost:3000
 ```
 
