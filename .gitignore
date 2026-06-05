@@ -2,7 +2,7 @@
 node_modules/
 
 # Database (runtime data, lives on a NAS volume)
-data/
+/data/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
