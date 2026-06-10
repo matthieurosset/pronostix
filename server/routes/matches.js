@@ -1,7 +1,7 @@
 import { db } from '../db.js';
 import { requireAuth } from '../auth.js';
 import { isMatchLocked } from '../locks.js';
-import { matchView } from '../views.js';
+import { matchView, teamLite } from '../views.js';
 import { recomputeMatch } from '../scoring.js';
 
 export default async function matchRoutes(app) {
@@ -11,6 +11,32 @@ export default async function matchRoutes(app) {
     const preds = db.prepare('SELECT * FROM predictions WHERE user_id = ?').all(req.user.id);
     const byMatch = new Map(preds.map(p => [p.match_id, p]));
     return { matches: matches.map(m => matchView(m, byMatch.get(m.id))) };
+  });
+
+  // Everyone's predictions for one match — visible only once the match is locked
+  // (T-15 min), i.e. when nobody can change theirs anymore.
+  app.get('/api/matches/:id/predictions', { preHandler: requireAuth }, async (req, reply) => {
+    const match = db.prepare('SELECT * FROM matches WHERE id = ?').get(Number(req.params.id));
+    if (!match) return reply.code(404).send({ error: 'Match introuvable' });
+    if (!isMatchLocked(match)) {
+      return reply.code(403).send({ error: 'Pronostics des autres visibles une fois le match verrouillé.' });
+    }
+    const rows = db.prepare(`
+      SELECT u.pseudo, p.user_id, p.home_score, p.away_score, p.qualifier_team_id, p.points
+      FROM predictions p JOIN users u ON u.id = p.user_id
+      WHERE p.match_id = ?
+      ORDER BY u.pseudo COLLATE NOCASE
+    `).all(match.id);
+    return {
+      predictions: rows.map(r => ({
+        pseudo: r.pseudo,
+        me: r.user_id === req.user.id,
+        home: r.home_score,
+        away: r.away_score,
+        qualifier: teamLite(r.qualifier_team_id),
+        points: r.points,
+      })),
+    };
   });
 
   // Create / update a prediction. Rejected once the match is locked (T-15 min).

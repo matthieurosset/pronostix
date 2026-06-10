@@ -128,7 +128,7 @@ body::after {
 }
 .scoresep { font-size: 22px; color: var(--ink-faint); font-weight: 800; padding: 0 2px; }
 
-.match .foot { margin-top: 12px; min-height: 18px; text-align: center; font-size: 12px; }
+.match .foot { margin-top: 12px; min-height: 18px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; }
 .tag { display: inline-flex; align-items: center; gap: 5px; font-weight: 600; }
 .tag.ok { color: var(--lime); }
 .tag.lock { color: var(--rose); }
@@ -143,6 +143,19 @@ body::after {
 }
 .pts.win { background: rgba(182,255,58,.16); color: var(--lime); }
 .pts.zero { background: rgba(255,255,255,.05); color: var(--ink-faint); }
+
+/* everyone's predictions, revealed once the match is locked */
+.preds-btn { margin-left: auto; }
+.others { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.other-row {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12.5px; padding: 3px 2px; color: var(--ink-dim);
+}
+.other-row.me { color: var(--ink); font-weight: 600; }
+.other-row .op { min-width: 90px; }
+.other-row .os { font-weight: 700; color: var(--ink); }
+.other-row .oq { color: var(--ink-faint); font-size: 11.5px; }
+.other-row.none { color: var(--ink-faint); font-style: italic; }
 
 /* locked / read-only state */
 .match.locked { opacity: .96; }

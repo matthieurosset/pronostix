@@ -42,8 +42,11 @@ function flagImg(side, cls = 'flag') {
 }
 
 const STAGE_FR = { group: 'Poule', R32: '16es de finale', R16: '8es de finale', QF: 'Quarts', SF: 'Demi-finales', '3RD': '3e place', F: 'Finale' };
-const fmtDay = (iso) => new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(iso));
-const fmtTime = (iso) => new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+// All times are shown in Swiss time (Europe/Zurich), whatever the device's timezone.
+const TZ = 'Europe/Zurich';
+const fmtDay = (iso) => new Intl.DateTimeFormat('fr-FR', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(iso));
+const fmtTime = (iso) => new Intl.DateTimeFormat('fr-FR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+const dayKey = (iso) => new Intl.DateTimeFormat('fr-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
 
 const ROUTES = [
   { id: 'matches', icon: '⚽', label: 'Matchs' },
@@ -157,16 +160,16 @@ function debounceSave(key, fn, ms = 650) { clearTimeout(saveTimers[key]); saveTi
 
 async function viewMatches(view) {
   const { matches } = await api('/api/matches');
-  // group by local day
+  // group by Swiss day (not the device's timezone)
   const days = [];
   let last = null;
   for (const m of matches) {
-    const key = new Date(m.kickoff).toDateString();
+    const key = dayKey(m.kickoff);
     if (key !== last) { days.push({ key, label: fmtDay(m.kickoff), items: [] }); last = key; }
     days[days.length - 1].items.push(m);
   }
   view.innerHTML = `
-    <div class="section-head"><h1>Matchs</h1><span class="hint">${matches.length} matchs · verrou T‑15 min</span></div>
+    <div class="section-head"><h1>Matchs</h1><span class="hint">${matches.length} matchs · verrou T‑15 min · 🇨🇭 heure suisse</span></div>
     ${days.map(d => `
       <div class="daygroup-label">${esc(d.label)}</div>
       <div class="list">${d.items.map(matchCard).join('')}</div>
@@ -197,6 +200,8 @@ function matchCard(m) {
   } else {
     foot = `<span class="tag muted">À pronostiquer · ${fmtTime(m.kickoff)}</span>`;
   }
+  // Once locked, predictions are frozen → everyone's picks become visible.
+  if (locked || finished) foot += `<button class="linkish preds-btn" data-act="preds">👀 Pronos</button>`;
 
   const stepper = (sideKey, val) => `
     <div class="stepper">
@@ -233,17 +238,22 @@ function matchCard(m) {
       </div>
       ${koPick}
       <div class="foot">${foot}</div>
+      <div class="others" hidden></div>
     </div>`;
 }
 
 function bindMatchCards(view) {
   view.addEventListener('click', (e) => {
     const card = e.target.closest('.match');
-    if (!card || card.classList.contains('locked')) return;
+    if (!card) return;
     const id = Number(card.dataset.id);
     const btn = e.target.closest('[data-act]');
     if (!btn) return;
     const act = btn.dataset.act;
+
+    // Works on locked cards too — that's precisely when picks become public.
+    if (act === 'preds') return togglePredictions(card, id);
+    if (card.classList.contains('locked')) return;
 
     if (act === 'inc' || act === 'dec') {
       const side = btn.dataset.side;
@@ -257,6 +267,25 @@ function bindMatchCards(view) {
       queueMatchSave(card, id);
     }
   });
+}
+
+async function togglePredictions(card, id) {
+  const box = card.querySelector('.others');
+  if (!box.hidden) { box.hidden = true; return; }
+  if (!box.dataset.loaded) {
+    try {
+      const { predictions } = await api(`/api/matches/${id}/predictions`);
+      box.innerHTML = predictions.length ? predictions.map(p => `
+        <div class="other-row${p.me ? ' me' : ''}">
+          <span class="op">${esc(p.pseudo)}</span>
+          <span class="os">${p.home} – ${p.away}</span>
+          ${p.qualifier ? `<span class="oq">→ ${esc(p.qualifier.name)}</span>` : ''}
+          ${p.points != null ? `<span class="pts ${p.points > 0 ? 'win' : 'zero'}">${p.points > 0 ? '+' : ''}${p.points}</span>` : ''}
+        </div>`).join('') : '<div class="other-row none">Personne n\'a pronostiqué ce match.</div>';
+      box.dataset.loaded = '1';
+    } catch (err) { return toast(err.message, 'err'); }
+  }
+  box.hidden = false;
 }
 
 function queueMatchSave(card, id) {
