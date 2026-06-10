@@ -14,7 +14,8 @@ les scores, classe les groupes, place ses bonus — et un classement familial se
 - **Comptes ultra-simples** : pseudo + code PIN à 4 chiffres, sans email ni vérification.
 - **Pronostics de matchs** : score exact pour les 104 matchs (poules + élimination directe).
   - Barème : **3 pts** score exact · **1 pt** bon résultat (1/N/2).
-  - Phases finales : **+1 pt** pour la bonne équipe qualifiée.
+  - Phases finales, bonne équipe qualifiée : **+1 pt** (16es/8es) · **+2 pts** dès les
+    quarts (quarts, demies, petite finale) · **+5 pts** pour le bon champion en finale.
   - **Verrou automatique 15 min avant** le coup d'envoi de chaque match.
 - **Ordre des groupes** : classe les 4 équipes de chaque groupe → **+1 pt par équipe à la
   bonne place**. Verrou au 1er match du groupe.
@@ -25,7 +26,8 @@ les scores, classe les groupes, place ses bonus — et un classement familial se
 - **Récupération des résultats hybride** :
   - un job interne récupère les résultats finaux (source [openfootball], sans clé) ;
   - un **écran admin** permet de saisir/corriger un score, fixer les équipes des phases
-    finales, figer l'ordre officiel d'un groupe et renseigner les issues (vainqueur/buteur).
+    finales, figer l'ordre officiel d'un groupe, renseigner le vainqueur et **valider le
+    pronostic « meilleur buteur » de chaque joueur** (✓/✗, pas de comparaison de texte).
 
 ## Stack
 

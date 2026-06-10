@@ -3,10 +3,19 @@ import { db, getSetting } from './db.js';
 export const POINTS = {
   EXACT: 3,
   RESULT: 1,
-  QUALIFIER: 1,   // KO: correct advancing team
-  GROUP_SLOT: 1,  // per team placed in the correct final group position
-  BONUS: 10,      // tournament winner / top scorer
+  QUALIFIER: 1,       // KO: correct advancing team (R32 / R16)
+  QUALIFIER_LATE: 2,  // from the quarter-finals (QF / SF / 3RD)
+  QUALIFIER_FINAL: 5, // final: correct world champion
+  GROUP_SLOT: 1,      // per team placed in the correct final group position
+  BONUS: 10,          // tournament winner / top scorer
 };
+
+/** Qualifier points scale up as the tournament progresses. */
+export function qualifierPoints(stage) {
+  if (stage === 'F') return POINTS.QUALIFIER_FINAL;
+  if (stage === 'QF' || stage === 'SF' || stage === '3RD') return POINTS.QUALIFIER_LATE;
+  return POINTS.QUALIFIER;
+}
 
 /** Core match scoring: 3 exact, 1 correct outcome, 0 otherwise. */
 export function scoreMatch(pHome, pAway, aHome, aAway) {
@@ -26,7 +35,7 @@ export function recomputeMatch(matchId) {
       if (!finished) { upd.run(null, p.id); continue; }
       let pts = scoreMatch(p.home_score, p.away_score, m.home_score, m.away_score);
       if (m.stage !== 'group' && m.advancing_team_id != null && p.qualifier_team_id != null) {
-        if (p.qualifier_team_id === m.advancing_team_id) pts += POINTS.QUALIFIER;
+        if (p.qualifier_team_id === m.advancing_team_id) pts += qualifierPoints(m.stage);
       }
       upd.run(pts, p.id);
     }
@@ -67,10 +76,10 @@ export function recomputeAllGroupOrders() {
   for (const l of letters) recomputeGroupOrder(l);
 }
 
-/** Recompute bonus points from official outcomes (winner team id + top scorer name). */
+/** Recompute bonus points: winner from the official outcome (team id),
+ *  top scorer from the admin's per-prediction validation (admin_validated). */
 export function recomputeBonus() {
   const winnerTeamId = getSetting('winner_team_id');
-  const topScorer = (getSetting('top_scorer') || '').trim().toLowerCase();
   const preds = db.prepare('SELECT * FROM bonus_predictions').all();
   const upd = db.prepare('UPDATE bonus_predictions SET points = ? WHERE id = ?');
   const tx = db.transaction(() => {
@@ -78,8 +87,8 @@ export function recomputeBonus() {
       let pts = null;
       if (p.type === 'winner' && winnerTeamId) {
         pts = String(p.team_id) === String(winnerTeamId) ? POINTS.BONUS : 0;
-      } else if (p.type === 'top_scorer' && topScorer) {
-        pts = (p.player_name || '').trim().toLowerCase() === topScorer ? POINTS.BONUS : 0;
+      } else if (p.type === 'top_scorer' && p.admin_validated != null) {
+        pts = p.admin_validated ? POINTS.BONUS : 0;
       }
       upd.run(pts, p.id);
     }

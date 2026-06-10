@@ -208,9 +208,10 @@ function matchCard(m) {
   let koPick = '';
   if (isKO && bothKnown && !finished) {
     const q = m.prediction?.qualifier;
+    const qPts = m.stage === 'F' ? 5 : (m.stage === 'QF' || m.stage === 'SF' || m.stage === '3RD') ? 2 : 1;
     koPick = `
       <div class="ko-pick">
-        <div class="label">Qui se qualifie ?</div>
+        <div class="label">${m.stage === 'F' ? 'Qui est champion du monde ?' : 'Qui se qualifie ?'} <span style="color:var(--gold)">+${qPts} pt${qPts > 1 ? 's' : ''}</span></div>
         <div class="pick-row">
           <div class="pick ${q === m.home.id ? 'sel' : ''}" data-act="qual" data-team="${m.home.id}">${flagImg(m.home, 'pickflag')}${esc(m.home.name)}</div>
           <div class="pick ${q === m.away.id ? 'sel' : ''}" data-act="qual" data-team="${m.away.id}">${flagImg(m.away, 'pickflag')}${esc(m.away.name)}</div>
@@ -458,7 +459,9 @@ async function viewBonus(view) {
 // ADMIN
 // ============================================================
 async function viewAdmin(view) {
-  const [{ matches, teams }, { groups }] = await Promise.all([api('/api/admin/matches'), api('/api/groups')]);
+  const [{ matches, teams }, { groups }, bonus] = await Promise.all([
+    api('/api/admin/matches'), api('/api/groups'), api('/api/admin/bonus'),
+  ]);
   const teamOpt = (sel) => `<option value="">—</option>` + teams.map(t => `<option value="${t.id}" ${sel === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
 
   const matchRow = (m) => {
@@ -510,9 +513,19 @@ async function viewAdmin(view) {
 
     <div class="subhead">🎖️ Issues du tournoi (bonus)</div>
     <div class="card-pad">
-      <div class="field"><label>Vainqueur</label><select class="input" id="adWinner">${teamOpt()}</select></div>
-      <div class="field"><label>Meilleur buteur</label><input class="input" id="adScorer" placeholder="Nom du joueur" /></div>
-      <button class="btn" id="adOutcomes">Enregistrer les issues</button>
+      <div class="field"><label>Vainqueur</label><select class="input" id="adWinner">${teamOpt(bonus.winner_team_id != null ? Number(bonus.winner_team_id) : undefined)}</select></div>
+      <button class="btn" id="adOutcomes">Enregistrer le vainqueur</button>
+      <div class="field" style="margin-top:14px">
+        <label>Meilleur buteur — valide le pronostic de chacun (re-cliquer pour annuler)</label>
+        ${bonus.scorers.length ? bonus.scorers.map(s => `
+          <div class="am-controls" data-uid="${s.user_id}" data-validated="${s.admin_validated ?? ''}" style="margin-bottom:6px">
+            <b style="min-width:90px">${esc(s.pseudo)}</b>
+            <span style="flex:1">${esc(s.player_name)}</span>
+            ${s.admin_validated === 1 ? '<span class="tag ok">+10</span>' : s.admin_validated === 0 ? '<span class="tag">0 pt</span>' : '<span class="tag muted">à valider</span>'}
+            <button class="btn sm ${s.admin_validated === 1 ? '' : 'ghost'}" data-act="scorer-ok">✓</button>
+            <button class="btn sm ${s.admin_validated === 0 ? '' : 'ghost'}" data-act="scorer-no">✗</button>
+          </div>`).join('') : '<div style="font-size:13px;color:var(--ink-dim)">Aucun pronostic de buteur pour l\'instant.</div>'}
+      </div>
     </div>
 
     <div class="subhead">📊 Ordre officiel des groupes</div>
@@ -537,8 +550,7 @@ async function refreshAdmin() {
 function bindAdmin(view) {
   view.querySelector('#adOutcomes').addEventListener('click', async () => {
     const winner_team_id = view.querySelector('#adWinner').value;
-    const top_scorer = view.querySelector('#adScorer').value.trim();
-    try { await api('/api/admin/outcomes', { method: 'PUT', body: { winner_team_id, top_scorer } }); toast('Issues enregistrées'); }
+    try { await api('/api/admin/outcomes', { method: 'PUT', body: { winner_team_id } }); toast('Vainqueur enregistré'); }
     catch (e) { toast(e.message, 'err'); }
   });
 
@@ -559,6 +571,15 @@ function bindAdmin(view) {
         }
         await api(`/api/admin/matches/${id}/result`, { method: 'PUT', body: { home_score: get('home_score'), away_score: get('away_score'), advancing_team_id: get('advancing') } });
         toast('Résultat enregistré'); refreshAdmin();
+      } else if (act === 'scorer-ok' || act === 'scorer-no') {
+        const row = e.target.closest('[data-uid]');
+        const target = act === 'scorer-ok';
+        const current = row.dataset.validated === '' ? null : row.dataset.validated === '1';
+        // Clicking the already-active button resets the prediction to "pending".
+        const validated = current === target ? null : target;
+        await api(`/api/admin/bonus/top-scorer/${row.dataset.uid}`, { method: 'PUT', body: { validated } });
+        toast(validated == null ? 'Validation annulée' : validated ? 'Buteur validé +10' : 'Buteur refusé');
+        refreshAdmin();
       } else if (act === 'freeze' || act === 'unfreeze') {
         const box = e.target.closest('.admin-match');
         const letter = box.dataset.letter;

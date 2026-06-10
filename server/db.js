@@ -1,8 +1,9 @@
 import Database from 'better-sqlite3';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const DB_PATH = process.env.DB_PATH || new URL('../data/pronostix.sqlite', import.meta.url).pathname;
+const DB_PATH = process.env.DB_PATH || fileURLToPath(new URL('../data/pronostix.sqlite', import.meta.url));
 
 mkdirSync(dirname(DB_PATH), { recursive: true });
 
@@ -77,13 +78,14 @@ CREATE TABLE IF NOT EXISTS group_order_predictions (
 );
 
 CREATE TABLE IF NOT EXISTS bonus_predictions (
-  id          INTEGER PRIMARY KEY,
-  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  type        TEXT NOT NULL,    -- winner | top_scorer
-  team_id     INTEGER REFERENCES teams(id),
-  player_name TEXT,
-  points      INTEGER,
-  updated_at  TEXT NOT NULL,
+  id              INTEGER PRIMARY KEY,
+  user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type            TEXT NOT NULL,    -- winner | top_scorer
+  team_id         INTEGER REFERENCES teams(id),
+  player_name     TEXT,
+  points          INTEGER,
+  admin_validated INTEGER,         -- top_scorer: 1 correct / 0 wrong / NULL pending
+  updated_at      TEXT NOT NULL,
   UNIQUE(user_id, type)
 );
 
@@ -95,6 +97,9 @@ CREATE TABLE IF NOT EXISTS settings (
 CREATE INDEX IF NOT EXISTS idx_pred_match ON predictions(match_id);
 CREATE INDEX IF NOT EXISTS idx_matches_group ON matches(group_letter);
 `);
+
+// Migration: pre-existing databases lack the admin_validated column.
+try { db.exec('ALTER TABLE bonus_predictions ADD COLUMN admin_validated INTEGER'); } catch { /* already there */ }
 
 export function getSetting(key) {
   const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);

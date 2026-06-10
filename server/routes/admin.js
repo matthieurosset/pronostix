@@ -89,7 +89,7 @@ export default async function adminRoutes(app) {
     return { ok: true };
   });
 
-  // Set tournament outcomes (winner team + top scorer) → awards bonus points.
+  // Set the tournament winner → awards winner bonus points.
   app.put('/api/admin/outcomes', { preHandler: requireAdmin }, async (req, reply) => {
     if ('winner_team_id' in (req.body || {})) {
       const v = req.body.winner_team_id;
@@ -100,10 +100,29 @@ export default async function adminRoutes(app) {
         setSetting('winner_team_id', tid);
       }
     }
-    if ('top_scorer' in (req.body || {})) {
-      setSetting('top_scorer', String(req.body.top_scorer || '').trim() || null);
-    }
     recomputeBonus();
-    return { ok: true, winner_team_id: getSetting('winner_team_id'), top_scorer: getSetting('top_scorer') };
+    return { ok: true, winner_team_id: getSetting('winner_team_id') };
+  });
+
+  // Bonus overview: current winner + every top-scorer prediction awaiting validation.
+  app.get('/api/admin/bonus', { preHandler: requireAdmin }, async () => {
+    const scorers = db.prepare(`
+      SELECT b.user_id, u.pseudo, b.player_name, b.admin_validated
+      FROM bonus_predictions b JOIN users u ON u.id = b.user_id
+      WHERE b.type = 'top_scorer' AND COALESCE(TRIM(b.player_name), '') != ''
+      ORDER BY u.pseudo COLLATE NOCASE
+    `).all();
+    return { winner_team_id: getSetting('winner_team_id'), scorers };
+  });
+
+  // Validate one user's top-scorer prediction: true → +10, false → 0, null → pending.
+  app.put('/api/admin/bonus/top-scorer/:userId', { preHandler: requireAdmin }, async (req, reply) => {
+    const v = req.body?.validated;
+    const val = v == null ? null : (v ? 1 : 0);
+    const r = db.prepare("UPDATE bonus_predictions SET admin_validated = ? WHERE user_id = ? AND type = 'top_scorer'")
+      .run(val, Number(req.params.userId));
+    if (r.changes === 0) return reply.code(404).send({ error: 'Pronostic introuvable.' });
+    recomputeBonus();
+    return { ok: true };
   });
 }
