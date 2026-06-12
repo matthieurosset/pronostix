@@ -42,11 +42,17 @@ function flagImg(side, cls = 'flag') {
 }
 
 const STAGE_FR = { group: 'Poule', R32: '16es de finale', R16: '8es de finale', QF: 'Quarts', SF: 'Demi-finales', '3RD': '3e place', F: 'Finale' };
-// All times are shown in Swiss time (Europe/Zurich), whatever the device's timezone.
-const TZ = 'Europe/Zurich';
-const fmtDay = (iso) => new Intl.DateTimeFormat('fr-FR', { timeZone: TZ, weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(iso));
-const fmtTime = (iso) => new Intl.DateTimeFormat('fr-FR', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-const dayKey = (iso) => new Intl.DateTimeFormat('fr-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
+// Display timezone, user-selectable in the topbar. Pure display preference:
+// locks and scoring are computed server-side on UTC timestamps.
+const TZS = {
+  CH: { tz: 'Europe/Zurich', flag: '🇨🇭', label: 'heure suisse' },
+  BR: { tz: 'America/Sao_Paulo', flag: '🇧🇷', label: 'heure de Rio' },
+};
+const curTzKey = () => (localStorage.getItem('px_tz') === 'BR' ? 'BR' : 'CH');
+const curTz = () => TZS[curTzKey()].tz;
+const fmtDay = (iso) => new Intl.DateTimeFormat('fr-FR', { timeZone: curTz(), weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(iso));
+const fmtTime = (iso) => new Intl.DateTimeFormat('fr-FR', { timeZone: curTz(), hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+const dayKey = (iso) => new Intl.DateTimeFormat('fr-CA', { timeZone: curTz(), year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(iso));
 
 const ROUTES = [
   { id: 'matches', icon: '⚽', label: 'Matchs' },
@@ -142,6 +148,9 @@ function shell(route) {
   $app.innerHTML = `
     <div class="topbar">
       <div class="wordmark">Prono<b>stix</b></div>
+      <div class="tz-toggle" title="Fuseau horaire d'affichage">
+        ${Object.entries(TZS).map(([k, v]) => `<button data-tz="${k}" class="${k === curTzKey() ? 'on' : ''}">${v.flag}</button>`).join('')}
+      </div>
       <div class="who"><strong>${esc(u.pseudo)}</strong><button class="linkish" id="logout">Déconnexion</button></div>
     </div>
     <div id="view"><div class="spinner"></div></div>
@@ -149,6 +158,12 @@ function shell(route) {
       ${routes.map(r => `<a href="#/${r.id}" class="${r.id === route ? 'on' : ''}"><span class="ic">${r.icon}</span>${r.label}</a>`).join('')}
     </nav>`;
   $app.querySelector('#logout').addEventListener('click', logout);
+  $app.querySelectorAll('.tz-toggle button').forEach(b => b.addEventListener('click', () => {
+    if (b.dataset.tz === curTzKey()) return;
+    localStorage.setItem('px_tz', b.dataset.tz);
+    router(); // re-render the current view with the new timezone
+    toast(`${TZS[b.dataset.tz].flag} Horaires en ${TZS[b.dataset.tz].label}`);
+  }));
   return $app.querySelector('#view');
 }
 
@@ -169,7 +184,7 @@ async function viewMatches(view) {
     days[days.length - 1].items.push(m);
   }
   view.innerHTML = `
-    <div class="section-head"><h1>Matchs</h1><span class="hint">${matches.length} matchs · verrou T‑15 min · 🇨🇭 heure suisse</span></div>
+    <div class="section-head"><h1>Matchs</h1><span class="hint">${matches.length} matchs · verrou T‑15 min · ${TZS[curTzKey()].flag} ${TZS[curTzKey()].label}</span></div>
     ${days.map(d => `
       <div class="daygroup-label">${esc(d.label)}</div>
       <div class="list">${d.items.map(matchCard).join('')}</div>
