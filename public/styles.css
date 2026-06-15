@@ -320,6 +320,13 @@ body::after {
 .group-jump button:hover, .group-jump button:active {
   border-color: var(--lime); color: var(--ink); background: rgba(182,255,58,.10);
 }
+.third-slot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; padding: 6px 2px; border-top: 1px solid var(--line-soft); }
+.third-slot .ts-match { font-weight: 800; color: var(--ink-faint); min-width: 34px; }
+.third-slot .ts-label { font-weight: 700; color: var(--lime); min-width: 96px; }
+.third-slot .ts-cands { color: var(--ink-dim); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.third-slot .ts-cands small { color: var(--ink-faint); margin-left: 2px; }
+.third-slot img.fmini { width: 18px; height: 13px; border-radius: 2px; vertical-align: middle; }
+
 .admin-match { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 11px; margin-bottom: 9px; }
 .admin-match .am-head { font-size: 12.5px; font-weight: 600; margin-bottom: 8px; display: flex; gap: 6px; align-items: center; }
 .admin-match .am-head img { width: 20px; height: 14px; border-radius: 2px; }

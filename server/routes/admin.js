@@ -2,6 +2,7 @@ import { db, setSetting, getSetting } from '../db.js';
 import { requireAdmin } from '../auth.js';
 import { matchView, teamLite } from '../views.js';
 import { recomputeMatch, recomputeGroupOrder, recomputeBonus } from '../scoring.js';
+import { resolveBracket, bracketStatus } from '../bracket.js';
 
 export default async function adminRoutes(app) {
   // Full match list (raw) + team catalogue for the admin selectors.
@@ -46,6 +47,25 @@ export default async function adminRoutes(app) {
       .run(home, away, advancing, match.id);
     recomputeMatch(match.id);
     return { ok: true, match: matchView(db.prepare('SELECT * FROM matches WHERE id = ?').get(match.id), null) };
+  });
+
+  // Current bracket state: unresolved knockout slots + candidate thirds.
+  // Composite "best third" candidates are enriched with team name/flag.
+  app.get('/api/admin/bracket', { preHandler: requireAdmin }, async () => {
+    const { pending } = bracketStatus();
+    return {
+      pending: pending.map(p => ({
+        ...p,
+        candidates: p.candidates?.map(c => ({ group: c.group, team: teamLite(c.team_id) })) ?? null,
+      })),
+    };
+  });
+
+  // Auto-fill every deterministic knockout slot (group ranks + W/L cascade).
+  app.post('/api/admin/bracket/resolve', { preHandler: requireAdmin }, async () => {
+    const { filled, pending } = resolveBracket();
+    const thirdsPending = pending.filter(p => p.composite).length;
+    return { ok: true, filled: filled.length, thirds_pending: thirdsPending };
   });
 
   // Resolve a knockout match's teams once they are known.

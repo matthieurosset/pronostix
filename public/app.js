@@ -532,8 +532,8 @@ async function viewBonus(view) {
 // ADMIN
 // ============================================================
 async function viewAdmin(view) {
-  const [{ matches, teams }, { groups }, bonus] = await Promise.all([
-    api('/api/admin/matches'), api('/api/groups'), api('/api/admin/bonus'),
+  const [{ matches, teams }, { groups }, bonus, bracket] = await Promise.all([
+    api('/api/admin/matches'), api('/api/groups'), api('/api/admin/bonus'), api('/api/admin/bracket'),
   ]);
   const teamOpt = (sel) => `<option value="">—</option>` + teams.map(t => `<option value="${t.id}" ${sel === t.id ? 'selected' : ''}>${esc(t.name)}</option>`).join('');
 
@@ -604,11 +604,36 @@ async function viewAdmin(view) {
     <div class="subhead">📊 Ordre officiel des groupes</div>
     <div style="padding:0 14px">${groups.map(groupSetter).join('')}</div>
 
+    <div class="subhead">🔗 Bracket — phases finales</div>
+    <div class="card-pad">
+      <div style="font-size:12.5px;color:var(--ink-dim);margin-bottom:10px">Place automatiquement les équipes des phases finales depuis les résultats : 1er/2e de chaque groupe terminé, puis vainqueurs/perdants en cascade. Les <b>8 meilleurs 3es</b> restent à attribuer à la main (table FIFA officielle).</div>
+      <button class="btn" id="adBracket">Remplir le bracket automatiquement</button>
+      ${bracketThirdsPanel(bracket.pending)}
+    </div>
+
     <div class="subhead">⚽ Résultats des matchs</div>
     <div style="padding:0 14px 8px">${matches.map(matchRow).join('')}</div>
    </div>`;
 
   bindAdmin(view);
+}
+
+// Pending "best third" slots, with the eligible thirds already known as hints.
+function bracketThirdsPanel(pending) {
+  const thirds = (pending || []).filter(p => p.composite);
+  if (!thirds.length) return '';
+  return `
+    <div class="field" style="margin-top:14px">
+      <label>Meilleurs 3es à attribuer (${thirds.length}) — choisis l'équipe dans la liste du match plus bas</label>
+      ${thirds.map(p => `
+        <div class="third-slot">
+          <span class="ts-match">M${p.num}</span>
+          <span class="ts-label">${esc(p.label)}</span>
+          <span class="ts-cands">${p.candidates && p.candidates.length
+            ? p.candidates.map(c => `${flagImg(c.team, 'fmini')}${esc(c.team.name)}<small>(3e ${c.group})</small>`).join(' · ')
+            : '<span style="color:var(--ink-faint)">groupes éligibles pas encore terminés</span>'}</span>
+        </div>`).join('')}
+    </div>`;
 }
 
 // Re-render the admin view in place WITHOUT resetting scroll position.
@@ -625,6 +650,14 @@ function bindAdmin(view) {
     const winner_team_id = view.querySelector('#adWinner').value;
     try { await api('/api/admin/outcomes', { method: 'PUT', body: { winner_team_id } }); toast('Vainqueur enregistré'); }
     catch (e) { toast(e.message, 'err'); }
+  });
+
+  view.querySelector('#adBracket').addEventListener('click', async () => {
+    try {
+      const r = await api('/api/admin/bracket/resolve', { method: 'POST', body: {} });
+      toast(r.filled ? `${r.filled} équipe(s) placée(s)${r.thirds_pending ? ` · ${r.thirds_pending} 3e(s) à attribuer` : ''}` : 'Rien à placer pour l\'instant');
+      refreshAdmin();
+    } catch (e) { toast(e.message, 'err'); }
   });
 
   // Delegate on the recreated .admin-wrap (not the persistent #view) so listeners
