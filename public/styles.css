@@ -302,6 +302,24 @@ body::after {
 .empty { text-align: center; color: var(--ink-faint); padding: 50px 20px; font-size: 14px; }
 .spinner { width: 30px; height: 30px; border: 3px solid var(--line); border-top-color: var(--lime); border-radius: 50%; animation: spin .8s linear infinite; margin: 60px auto; }
 .note { font-size: 12px; color: var(--ink-dim); background: var(--surface); border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 11px 13px; margin: 0 14px 12px; }
+
+/* Group letters quick-jump menu */
+.group-jump {
+  position: sticky; top: 56px; z-index: 20;
+  display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px 10px;
+  padding: 16px 16px 14px; margin-bottom: 6px;
+  backdrop-filter: blur(14px); background: rgba(0,0,0,.18);
+}
+.group-jump button {
+  justify-self: center;
+  width: 36px; height: 36px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink-dim);
+  font-family: 'Archivo Expanded','Archivo',sans-serif; font-weight: 800; font-size: 14px;
+  cursor: pointer; transition: all .15s;
+}
+.group-jump button:hover, .group-jump button:active {
+  border-color: var(--lime); color: var(--ink); background: rgba(182,255,58,.10);
+}
 .admin-match { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 11px; margin-bottom: 9px; }
 .admin-match .am-head { font-size: 12.5px; font-weight: 600; margin-bottom: 8px; display: flex; gap: 6px; align-items: center; }
 .admin-match .am-head img { width: 20px; height: 14px; border-radius: 2px; }

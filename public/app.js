@@ -186,10 +186,26 @@ async function viewMatches(view) {
   view.innerHTML = `
     <div class="section-head"><h1>Matchs</h1><span class="hint">${matches.length} matchs · verrou T‑15 min · ${TZS[curTzKey()].flag} ${TZS[curTzKey()].label}</span></div>
     ${days.map(d => `
-      <div class="daygroup-label">${esc(d.label)}</div>
-      <div class="list">${d.items.map(matchCard).join('')}</div>
+      <div class="day" id="day-${d.key}">
+        <div class="daygroup-label">${esc(d.label)}</div>
+        <div class="list">${d.items.map(matchCard).join('')}</div>
+      </div>
     `).join('')}`;
   bindMatchCards(view);
+  scrollToCurrentDay(days);
+}
+
+// On arrival, jump to today's matches — or the next match day if none today.
+function scrollToCurrentDay(days) {
+  if (!days.length) return;
+  const todayKey = dayKey(new Date().toISOString());
+  const target = days.find(d => d.key >= todayKey) || days[days.length - 1];
+  const el = document.getElementById(`day-${target.key}`);
+  if (!el) return;
+  requestAnimationFrame(() => {
+    const top = el.getBoundingClientRect().top + window.scrollY - 56;
+    window.scrollTo(0, Math.max(0, top));
+  });
 }
 
 function matchCard(m) {
@@ -325,8 +341,21 @@ async function viewGroups(view) {
   const { groups } = await api('/api/groups');
   view.innerHTML = `
     <div class="section-head"><h1>Groupes</h1><span class="hint">classement réel + ton pronostic</span></div>
+    <div class="group-jump">${groups.map(g => `<button data-letter="${g.letter}">${g.letter}</button>`).join('')}</div>
     <div class="note">📊 Classement réel à gauche (mis à jour avec les résultats). Plus bas, ordonne les 4 équipes : <b>+1 pt par équipe à la bonne place finale</b>. Verrou au 1er match du groupe.</div>
     ${groups.map(groupCard).join('')}`;
+  const jump = view.querySelector('.group-jump');
+  jump.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-letter]');
+    if (!btn) return;
+    const el = view.querySelector(`.group-card[data-letter="${btn.dataset.letter}"]`);
+    if (!el) return;
+    // Land below the sticky stack (topbar + the letters menu) so the group title stays visible.
+    const topbar = document.querySelector('.topbar');
+    const offset = (topbar?.offsetHeight || 56) + jump.offsetHeight + 10;
+    const top = el.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  });
   bindGroups(view, groups);
 }
 
