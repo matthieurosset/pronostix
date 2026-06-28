@@ -14,8 +14,13 @@ les scores, classe les groupes, place ses bonus — et un classement familial se
 - **Comptes ultra-simples** : pseudo + code PIN à 4 chiffres, sans email ni vérification.
 - **Pronostics de matchs** : score exact pour les 104 matchs (poules + élimination directe).
   - Barème : **3 pts** score exact · **1 pt** bon résultat (1/N/2).
-  - Phases finales, bonne équipe qualifiée : **+1 pt** (16es/8es) · **+2 pts** dès les
-    quarts (quarts, demies, petite finale) · **+5 pts** pour le bon champion en finale.
+  - Phases finales : le score se pronostique **à la fin des 90 minutes** (prolongation et
+    tirs au but exclus), et **+1 pt** pour la bonne équipe qualifiée (qui peut, elle, se
+    décider en prolongation / aux tirs au but).
+  - **Bonus risque** (phases finales) : parmi ceux qui ont misé sur un qualifié, le camp
+    **minoritaire** qui voit juste se partage un pool de **2 pts** (seul → +2, 2 sur 5 →
+    +1 chacun). Égalité ou majorité : aucun bonus. Une indication apparaît dans « voir les
+    pronos des autres » dès que le match est verrouillé.
   - **Verrou automatique 15 min avant** le coup d'envoi de chaque match.
 - **Ordre des groupes** : classe les 4 équipes de chaque groupe → **+1 pt par équipe à la
   bonne place**. Verrou au 1er match du groupe.
@@ -24,7 +29,9 @@ les scores, classe les groupes, place ses bonus — et un classement familial se
 - **Onglet Groupes** : classements réels en direct (calculés depuis les résultats).
 - **Classement familial** avec podium, mis à jour à chaque résultat.
 - **Récupération des résultats hybride** :
-  - un job interne récupère les résultats finaux (source [openfootball], sans clé) ;
+  - un job interne récupère **uniquement les résultats de poule** (scoreboard ESPN public +
+    snapshot [openfootball] en secours, sans clé) ; les phases finales restent saisies à la
+    main, car les sources rapportent le score *après prolongation / tirs au but* ;
   - un **écran admin** permet de saisir/corriger un score, fixer les équipes des phases
     finales, figer l'ordre officiel d'un groupe, renseigner le vainqueur et **valider le
     pronostic « meilleur buteur » de chaque joueur** (✓/✗, pas de comparaison de texte).

@@ -2,7 +2,7 @@ import { db } from '../db.js';
 import { requireAuth } from '../auth.js';
 import { isMatchLocked } from '../locks.js';
 import { matchView, teamLite } from '../views.js';
-import { recomputeMatch } from '../scoring.js';
+import { recomputeMatch, minorityPick, POINTS } from '../scoring.js';
 
 export default async function matchRoutes(app) {
   // All matches with the current user's predictions, sorted by kickoff.
@@ -27,6 +27,19 @@ export default async function matchRoutes(app) {
       WHERE p.match_id = ?
       ORDER BY u.pseudo COLLATE NOCASE
     `).all(match.id);
+    // Risk bonus (KO only): which qualifier pick is the minority bet, and the
+    // per-person bonus if it advances. Shown as a hint once the match is locked.
+    let risk = null;
+    if (match.stage !== 'group') {
+      const minority = minorityPick(rows.filter(r => r.qualifier_team_id != null).map(r => r.qualifier_team_id));
+      if (minority) {
+        risk = {
+          team: teamLite(minority.teamId),
+          count: minority.count,
+          bonus_each: POINTS.RISK_POOL / minority.count,
+        };
+      }
+    }
     return {
       predictions: rows.map(r => ({
         pseudo: r.pseudo,
@@ -36,6 +49,7 @@ export default async function matchRoutes(app) {
         qualifier: teamLite(r.qualifier_team_id),
         points: r.points,
       })),
+      risk,
     };
   });
 

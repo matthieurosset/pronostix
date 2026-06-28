@@ -165,10 +165,17 @@ body::after {
 .other-row .os { font-weight: 700; color: var(--ink); }
 .other-row .oq { color: var(--ink-faint); font-size: 11.5px; }
 .other-row.none { color: var(--ink-faint); font-style: italic; }
+.risk-tag {
+  display: inline-block; margin-left: 4px; white-space: nowrap;
+  font-size: 10.5px; font-weight: 700; color: var(--lime);
+  background: rgba(182,255,58,.10); border-radius: 999px; padding: 0 6px;
+}
 
 /* locked / read-only state */
 .match.locked { opacity: .96; }
 .match.locked .stepper button { opacity: .35; pointer-events: none; }
+.match .ko-note { margin-top: 10px; font-size: 11px; color: var(--ink-faint); text-align: center; line-height: 1.4; }
+.match .ko-note b { color: var(--ink-dim); }
 .match .ko-pick { margin-top: 12px; }
 .ko-pick .label { font-size: 11px; color: var(--ink-dim); text-align: center; margin-bottom: 6px; }
 .pick-row { display: flex; gap: 8px; }

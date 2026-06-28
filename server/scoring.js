@@ -3,18 +3,27 @@ import { db, getSetting } from './db.js';
 export const POINTS = {
   EXACT: 3,
   RESULT: 1,
-  QUALIFIER: 1,       // KO: correct advancing team (R32 / R16)
-  QUALIFIER_LATE: 2,  // from the quarter-finals (QF / SF / 3RD)
-  QUALIFIER_FINAL: 5, // final: correct world champion
-  GROUP_SLOT: 1,      // per team placed in the correct final group position
-  BONUS: 10,          // tournament winner / top scorer
+  QUALIFIER: 1,    // KO: correct advancing team (flat, every round)
+  GROUP_SLOT: 1,   // per team placed in the correct final group position
+  BONUS: 10,       // tournament winner / top scorer
+  RISK_POOL: 2,    // KO: shared "contrarian" pool for minority qualifier pickers
 };
 
-/** Qualifier points scale up as the tournament progresses. */
-export function qualifierPoints(stage) {
-  if (stage === 'F') return POINTS.QUALIFIER_FINAL;
-  if (stage === 'QF' || stage === 'SF' || stage === '3RD') return POINTS.QUALIFIER_LATE;
-  return POINTS.QUALIFIER;
+/**
+ * Risk rule: among everyone who picked a qualifier for a KO match, the team
+ * backed by a STRICT minority is the contrarian bet. If it advances, its
+ * backers split RISK_POOL (e.g. alone → 2 pts, 2 of 5 → 1 pt each). A tie or a
+ * majority earns nothing. Returns { teamId, count } of that minority team, or null.
+ */
+export function minorityPick(picks) {
+  if (!picks.length) return null;
+  const tally = new Map();
+  for (const id of picks) tally.set(id, (tally.get(id) || 0) + 1);
+  let best = null;
+  for (const [teamId, count] of tally) {
+    if (count < picks.length / 2 && (!best || count < best.count)) best = { teamId, count };
+  }
+  return best;
 }
 
 /** Core match scoring: 3 exact, 1 correct outcome, 0 otherwise. */
@@ -29,13 +38,25 @@ export function recomputeMatch(matchId) {
   if (!m) return;
   const finished = m.status === 'finished' && m.home_score != null && m.away_score != null;
   const preds = db.prepare('SELECT * FROM predictions WHERE match_id = ?').all(matchId);
+
+  // Risk bonus: if the team that actually advanced was the minority qualifier pick,
+  // its backers split RISK_POOL (count = how many backed it).
+  let riskTeam = null;
+  if (finished && m.stage !== 'group' && m.advancing_team_id != null) {
+    const picks = preds.filter(p => p.qualifier_team_id != null).map(p => p.qualifier_team_id);
+    const minority = minorityPick(picks);
+    if (minority && minority.teamId === m.advancing_team_id) riskTeam = minority;
+  }
+
   const upd = db.prepare('UPDATE predictions SET points = ? WHERE id = ?');
   const tx = db.transaction(() => {
     for (const p of preds) {
       if (!finished) { upd.run(null, p.id); continue; }
       let pts = scoreMatch(p.home_score, p.away_score, m.home_score, m.away_score);
-      if (m.stage !== 'group' && m.advancing_team_id != null && p.qualifier_team_id != null) {
-        if (p.qualifier_team_id === m.advancing_team_id) pts += qualifierPoints(m.stage);
+      if (m.stage !== 'group' && m.advancing_team_id != null && p.qualifier_team_id != null
+          && p.qualifier_team_id === m.advancing_team_id) {
+        pts += POINTS.QUALIFIER;
+        if (riskTeam) pts += POINTS.RISK_POOL / riskTeam.count;
       }
       upd.run(pts, p.id);
     }

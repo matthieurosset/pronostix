@@ -34,6 +34,8 @@ function toast(msg, kind = 'ok') {
 }
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Points can be fractional (shared risk bonus) — show integers plainly, trim decimals otherwise.
+const fmtPts = (n) => { const r = Math.round(Number(n) * 100) / 100; return Number.isInteger(r) ? String(r) : String(r); };
 const flagUrl = (f) => f ? `/flags/${f}` : null;
 
 function flagImg(side, cls = 'flag') {
@@ -221,7 +223,7 @@ function matchCard(m) {
   if (finished) {
     let pts = '';
     if (m.prediction && m.prediction.points != null) {
-      pts = `<span class="pts ${m.prediction.points > 0 ? 'win' : 'zero'}">${m.prediction.points > 0 ? '+' : ''}${m.prediction.points} pt${m.prediction.points > 1 ? 's' : ''}</span>`;
+      pts = `<span class="pts ${m.prediction.points > 0 ? 'win' : 'zero'}">${m.prediction.points > 0 ? '+' : ''}${fmtPts(m.prediction.points)} pt${m.prediction.points > 1 ? 's' : ''}</span>`;
     }
     foot = `<span class="result-pill">Résultat ${m.result.home} – ${m.result.away}</span>${pts}`;
   } else if (locked) {
@@ -241,13 +243,16 @@ function matchCard(m) {
       <button data-act="dec" data-side="${sideKey}" aria-label="moins">−</button>
     </div>`;
 
+  // Knockout score predictions are scored on the 90-minute (regular-time) result;
+  // the separate "who advances" pick covers extra time / penalties.
+  const koNote = isKO ? `<div class="ko-note">⏱️ Score à la fin des <b>90 minutes</b> (prolongation et tirs au but exclus).</div>` : '';
+
   let koPick = '';
   if (isKO && bothKnown && !finished) {
     const q = m.prediction?.qualifier;
-    const qPts = m.stage === 'F' ? 5 : (m.stage === 'QF' || m.stage === 'SF' || m.stage === '3RD') ? 2 : 1;
     koPick = `
       <div class="ko-pick">
-        <div class="label">${m.stage === 'F' ? 'Qui est champion du monde ?' : 'Qui se qualifie ?'} <span style="color:var(--gold)">+${qPts} pt${qPts > 1 ? 's' : ''}</span></div>
+        <div class="label">${m.stage === 'F' ? 'Qui est champion du monde ?' : 'Qui se qualifie ?'} <span style="color:var(--gold)">+1 pt</span></div>
         <div class="pick-row">
           <div class="pick ${q === m.home.id ? 'sel' : ''}" data-act="qual" data-team="${m.home.id}">${flagImg(m.home, 'pickflag')}${esc(m.home.name)}</div>
           <div class="pick ${q === m.away.id ? 'sel' : ''}" data-act="qual" data-team="${m.away.id}">${flagImg(m.away, 'pickflag')}${esc(m.away.name)}</div>
@@ -267,6 +272,7 @@ function matchCard(m) {
         </div>
         <div class="team">${flagImg(m.away)}<div class="name ${m.away.id ? '' : 'small'}">${esc(m.away.name)}</div></div>
       </div>
+      ${koNote}
       ${koPick}
       <div class="foot">${foot}</div>
       <div class="others" hidden></div>
@@ -305,14 +311,16 @@ async function togglePredictions(card, id) {
   if (!box.hidden) { box.hidden = true; return; }
   if (!box.dataset.loaded) {
     try {
-      const { predictions } = await api(`/api/matches/${id}/predictions`);
-      box.innerHTML = predictions.length ? predictions.map(p => `
+      const { predictions, risk } = await api(`/api/matches/${id}/predictions`);
+      box.innerHTML = predictions.length ? predictions.map(p => {
+        const isRisk = risk && p.qualifier && p.qualifier.id === risk.team.id;
+        return `
         <div class="other-row${p.me ? ' me' : ''}">
           <span class="op">${esc(p.pseudo)}</span>
           <span class="os">${p.home} – ${p.away}</span>
-          ${p.qualifier ? `<span class="oq">→ ${esc(p.qualifier.name)}</span>` : ''}
-          ${p.points != null ? `<span class="pts ${p.points > 0 ? 'win' : 'zero'}">${p.points > 0 ? '+' : ''}${p.points}</span>` : ''}
-        </div>`).join('') : '<div class="other-row none">Personne n\'a pronostiqué ce match.</div>';
+          ${p.qualifier ? `<span class="oq">→ ${esc(p.qualifier.name)}${isRisk ? ` <span class="risk-tag">🎲 bonus risque : ${fmtPts(risk.bonus_each)} pt</span>` : ''}</span>` : ''}
+          ${p.points != null ? `<span class="pts ${p.points > 0 ? 'win' : 'zero'}">${p.points > 0 ? '+' : ''}${fmtPts(p.points)}</span>` : ''}
+        </div>`; }).join('') : '<div class="other-row none">Personne n\'a pronostiqué ce match.</div>';
       box.dataset.loaded = '1';
     } catch (err) { return toast(err.message, 'err'); }
   }
@@ -479,7 +487,7 @@ async function viewLeaderboard(view) {
         <div class="pod p${i + 1}">
           <div class="medal">${medals[i]}</div>
           <div class="nm">${esc(top3[i].pseudo)}</div>
-          <div class="sc">${top3[i].points}</div>
+          <div class="sc">${fmtPts(top3[i].points)}</div>
         </div>`).join('')}
     </div>` : ''}
     <div class="rank-list">
@@ -489,13 +497,13 @@ async function viewLeaderboard(view) {
           <div class="who2">${esc(r.pseudo)}
             <small>${r.exact} score${r.exact > 1 ? 's' : ''} exact${r.exact > 1 ? 's' : ''} · ${r.scored} match${r.scored > 1 ? 's' : ''} joué${r.scored > 1 ? 's' : ''}</small>
             <div class="breakdown">
-              <span title="Pronostics des matchs de poule">⚽ ${r.group_points}</span>
-              <span title="Ordre final des groupes">🔢 ${r.order_points}</span>
-              <span title="Pronostics des phases finales">🏆 ${r.ko_points}</span>
-              ${r.bonus_points ? `<span title="Bonus (vainqueur · buteur)">⭐ ${r.bonus_points}</span>` : ''}
+              <span title="Pronostics des matchs de poule">⚽ ${fmtPts(r.group_points)}</span>
+              <span title="Ordre final des groupes">🔢 ${fmtPts(r.order_points)}</span>
+              <span title="Pronostics des phases finales (qualifiés + bonus risque)">🏆 ${fmtPts(r.ko_points)}</span>
+              ${r.bonus_points ? `<span title="Bonus (vainqueur · buteur)">⭐ ${fmtPts(r.bonus_points)}</span>` : ''}
             </div>
           </div>
-          <div class="score">${r.points}</div>
+          <div class="score">${fmtPts(r.points)}</div>
         </div>`).join('')}
     </div>
     ${ranking.every(r => r.points === 0) ? '<div class="empty">Le classement se remplira dès les premiers résultats. ⚽</div>' : ''}`;

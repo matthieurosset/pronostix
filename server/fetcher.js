@@ -60,9 +60,12 @@ async function fetchEspnResults() {
 }
 
 export async function fetchResultsOnce(log = console) {
-  // Index local group matches by english team names (set at seed time).
-  // Group pairings are unique across the group stage, so team names alone are
-  // a safe key — and they avoid local-date vs UTC-date mismatches.
+  // Index local GROUP matches only by english team names (set at seed time).
+  // Knockout matches are deliberately excluded: their feeds report the score
+  // AFTER extra time / penalties, whereas predictions are scored on the
+  // 90-minute result. KO scores stay admin-entered. Group pairings are unique
+  // across the group stage, so team names alone are a safe key — and they
+  // avoid local-date vs UTC-date mismatches.
   const locals = db.prepare(`
     SELECT m.*, h.name_en AS home_en, a.name_en AS away_en
     FROM matches m
@@ -79,7 +82,8 @@ export async function fetchResultsOnce(log = console) {
     let local = index.get(key(team1, team2));
     let swapped = false;
     if (!local) { local = index.get(key(team2, team1)); swapped = true; }
-    if (!local || local.status === 'finished') return; // never override admin/already scored
+    if (!local || local.stage !== 'group') return; // hard guard: only group matches, ever
+    if (local.status === 'finished') return;       // never override admin/already scored
     const [h, a] = swapped ? [ft[1], ft[0]] : ft;
     db.prepare("UPDATE matches SET home_score = ?, away_score = ?, status = 'finished' WHERE id = ?")
       .run(Number(h), Number(a), local.id);
