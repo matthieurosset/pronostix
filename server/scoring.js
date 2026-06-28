@@ -96,17 +96,27 @@ export function recomputeBonus() {
   tx();
 }
 
-/** Family leaderboard: total points per user across matches, group order and bonus. */
+/**
+ * Family leaderboard with a per-user points breakdown:
+ * group-stage matches, group order, knockout matches, and bonus.
+ */
 export function leaderboard() {
   const rows = db.prepare(`
     SELECT u.id, u.pseudo,
-      COALESCE((SELECT SUM(points) FROM predictions             WHERE user_id = u.id), 0)
-    + COALESCE((SELECT SUM(points) FROM group_order_predictions WHERE user_id = u.id), 0)
-    + COALESCE((SELECT SUM(points) FROM bonus_predictions       WHERE user_id = u.id), 0) AS points,
+      COALESCE((SELECT SUM(p.points) FROM predictions p JOIN matches m ON m.id = p.match_id
+                WHERE p.user_id = u.id AND m.stage =  'group'), 0) AS group_points,
+      COALESCE((SELECT SUM(points) FROM group_order_predictions WHERE user_id = u.id), 0) AS order_points,
+      COALESCE((SELECT SUM(p.points) FROM predictions p JOIN matches m ON m.id = p.match_id
+                WHERE p.user_id = u.id AND m.stage != 'group'), 0) AS ko_points,
+      COALESCE((SELECT SUM(points) FROM bonus_predictions WHERE user_id = u.id), 0) AS bonus_points,
       (SELECT COUNT(*) FROM predictions WHERE user_id = u.id AND points = ${POINTS.EXACT}) AS exact_count,
       (SELECT COUNT(*) FROM predictions WHERE user_id = u.id AND points IS NOT NULL)       AS scored_count
     FROM users u
-    ORDER BY points DESC, exact_count DESC, u.pseudo ASC
   `).all();
+  for (const r of rows) {
+    r.points = r.group_points + r.order_points + r.ko_points + r.bonus_points;
+  }
+  rows.sort((a, b) =>
+    b.points - a.points || b.exact_count - a.exact_count || a.pseudo.localeCompare(b.pseudo));
   return rows;
 }

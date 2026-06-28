@@ -486,7 +486,15 @@ async function viewLeaderboard(view) {
       ${ranking.map(r => `
         <div class="rank-row ${r.user_id === me ? 'me' : ''}">
           <div class="pos">${r.rank}</div>
-          <div class="who2">${esc(r.pseudo)}<small>${r.exact} score${r.exact > 1 ? 's' : ''} exact${r.exact > 1 ? 's' : ''} · ${r.scored} match${r.scored > 1 ? 's' : ''} joué${r.scored > 1 ? 's' : ''}</small></div>
+          <div class="who2">${esc(r.pseudo)}
+            <small>${r.exact} score${r.exact > 1 ? 's' : ''} exact${r.exact > 1 ? 's' : ''} · ${r.scored} match${r.scored > 1 ? 's' : ''} joué${r.scored > 1 ? 's' : ''}</small>
+            <div class="breakdown">
+              <span title="Pronostics des matchs de poule">⚽ ${r.group_points}</span>
+              <span title="Ordre final des groupes">🔢 ${r.order_points}</span>
+              <span title="Pronostics des phases finales">🏆 ${r.ko_points}</span>
+              ${r.bonus_points ? `<span title="Bonus (vainqueur · buteur)">⭐ ${r.bonus_points}</span>` : ''}
+            </div>
+          </div>
           <div class="score">${r.points}</div>
         </div>`).join('')}
     </div>

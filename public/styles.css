@@ -232,6 +232,12 @@ body::after {
 .rank-row .pos { font-family:'Archivo Expanded',sans-serif; font-weight: 900; width: 26px; color: var(--ink-dim); }
 .rank-row .who2 { flex: 1; font-weight: 600; }
 .rank-row .who2 small { display: block; color: var(--ink-faint); font-weight: 500; font-size: 11px; }
+.rank-row .breakdown { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.rank-row .breakdown span {
+  font-size: 11px; font-weight: 700; color: var(--ink-dim);
+  background: var(--surface-2); border: 1px solid var(--line-soft);
+  border-radius: 999px; padding: 1px 7px;
+}
 .rank-row .score { font-family:'Archivo Expanded',sans-serif; font-weight: 900; font-size: 20px; color: var(--gold); }
 
 /* ---------- Forms / buttons ---------- */
